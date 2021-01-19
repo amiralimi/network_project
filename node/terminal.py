@@ -1,6 +1,7 @@
 import re
+from typing import List
 
-Command = list[re.Pattern]
+Command = List[re.Pattern]
 
 
 class Terminal:
