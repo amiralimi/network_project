@@ -15,9 +15,6 @@ class Node:
     def upload(self, file_name: str):
         pass
 
-    def download(self):
-        pass
-
     def search(self, file_name: str):
         pass
 
@@ -26,8 +23,6 @@ class Node:
         if 'upload' in command:
             file_name = command_parts[3].replace('"', '')
             self.upload(file_name)
-        if 'download' in command:
-            self.download()
         if 'search' in command:
             file_name = command_parts[2].replace('"', '')
             self.search(file_name)
@@ -38,9 +33,6 @@ class Node:
         commands = list()
         commands.append(
             re.compile(fr'\Atorrent -setMode upload "{file_name_re}"$')
-        )
-        commands.append(
-            re.compile(r'\Atorrent -setMode download$')
         )
         commands.append(
             re.compile(fr'\Atorrent -search "{file_name_re}"$')
