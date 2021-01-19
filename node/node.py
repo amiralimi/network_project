@@ -1,11 +1,15 @@
+import socket
+import json
 import re
 from .terminal import Terminal, Command
 
 
 class Node:
-    def __init__(self):
+    def __init__(self, adr, tracker_adr):
         commands = self.node_commands()
         self.terminal = Terminal(commands)
+        self.adr = adr
+        self.tracker_adr = tracker_adr
 
     def start(self):
         while True:
@@ -13,13 +17,26 @@ class Node:
             self.run_command(command)
 
     def upload(self, file_name: str):
-        pass
+        data = {
+            'type': 'add_peer',
+            'peer_addr': self.adr,
+            'filename': file_name
+        }
+        self.send_message_to_tracker(data)
 
     def download(self):
         pass
 
     def search(self, file_name: str):
         pass
+
+    def send_message_to_tracker(self, data):
+        req = json.dumps(data).encode('utf-8')
+        print(f'sending bellow data to tracker.\n'
+              f'r{req}')
+        udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
+        udp_socket.sendto(req, self.tracker_adr)
+        udp_socket.close()
 
     def run_command(self, command: str):
         command_parts = command.split()

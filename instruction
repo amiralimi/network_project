@@ -1,1 +1,0 @@
-python main.py --torrent --setMode --upload --path file.txt --port 2323
