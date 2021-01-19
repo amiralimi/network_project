@@ -31,3 +31,4 @@ class Tracker:
 
 if __name__ == '__main__':
     tracker = Tracker('localhost', 1111, 2 ** 16)
+    tracker.run()
