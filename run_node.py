@@ -2,7 +2,7 @@ import getopt
 import sys
 from node.node import Node
 
-unix_options = 't:s:u:d:p:p:'
+unix_options = 'i:p:t:t:'
 gnu_options = ['ip=', 'port=', 'tracker_ip=', 'tracker_port=']
 
 

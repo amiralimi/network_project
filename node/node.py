@@ -51,6 +51,32 @@ class Node:
             'file_name': file_name
         }
         response = self.send_receive_message_to_tracker(data, True)
+        uploader_peer_adr = self.select_uploader_peer(response)
+        print(uploader_peer_adr)
+        if uploader_peer_adr:
+            self.download(file_name , uploader_peer_adr)
+
+    def download(self, file_name: str,uploader_peer_adr):
+        data = {
+            'type': 'get_file',
+            'file_name': file_name
+        }
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.bind(self.addr)
+        req = json.dumps(data).encode('utf-8')
+        sock.sendto(req, uploader_peer_adr)
+        response, address = sock.recvfrom(BUFF_SIZE)
+        response = json.loads(response.decode('utf-8'))
+        f = open("docs/result.txt", "w")
+        for line in response["chunk"]:
+            f.write(line)
+        f.close()
+        sock.close()
+
+
+    def select_uploader_peer (self, response: dict) ->tuple:
+        return response[0][0], response[0][1]
+        # todo add chunk and uploader selector
 
     def send_receive_message_to_tracker(self, data: dict, has_response: bool) -> list:
         req = json.dumps(data).encode('utf-8')
@@ -78,7 +104,12 @@ class Node:
 
     @staticmethod
     def get_chunk(req):
-        return req
+        requested_filename = req['file_name']
+        file_path = 'docs/' + requested_filename
+        f = open(file_path , 'r')
+        chunk = f.readlines()
+        f.close()
+        return chunk
 
     @staticmethod
     def node_commands() -> Command:
