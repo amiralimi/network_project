@@ -22,18 +22,29 @@ class Node:
             'peer_addr': self.adr,
             'file_name': file_name
         }
-        self.send_message_to_tracker(data)
+        self.send_receive_message_to_tracker(data, False)
 
     def search(self, file_name: str):
-        pass
+        data = {
+            'type': 'find_file',
+            'file_name': file_name
+        }
+        response = self.send_receive_message_to_tracker(data, True)
 
-    def send_message_to_tracker(self, data):
+    def send_receive_message_to_tracker(self, data: dict, has_response: bool) -> list:
         req = json.dumps(data).encode('utf-8')
         print(f'sending this data to tracker:\n'
               f'r{req}')
         udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
         udp_socket.sendto(req, self.tracker_adr)
+        response = None
+        if has_response:
+            response, address = udp_socket.recvfrom(4096)
+            response = json.loads(response.decode('utf-8'))
+            print(f'got this response from the server:\n'
+                  f'{response}')
         udp_socket.close()
+        return response
 
     def run_command(self, command: str):
         command_parts = command.split()

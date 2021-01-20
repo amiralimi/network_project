@@ -20,7 +20,12 @@ class Tracker:
             print(f'got this request from {address}:\n'
                   f'{data}')
             data = json.loads(data)
-            self.handle_request(data)
+            response = self.handle_request(data)
+            if response:
+                response = json.dumps(response).encode('utf-8')
+                self.sock.sendto(response, address)
+                print(f'sending this response to node:'
+                      f'{response}')
 
     def handle_request(self, data):
         if data['type'] == 'add_peer':
@@ -28,8 +33,14 @@ class Tracker:
             if file_name not in self.file_tracker:
                 self.file_tracker[file_name] = list()
             self.file_tracker[file_name].append(data['peer_addr'])
-        print(self.file_tracker)
-        # TODO: other types of requests.
+            return None
+        elif data['type'] == 'find_file':
+            file_name = data['file_name']
+            if file_name in self.file_tracker:
+                response = self.file_tracker[file_name]
+            else:
+                response = []
+            return response
 
 
 if __name__ == '__main__':
