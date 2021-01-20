@@ -17,13 +17,17 @@ DOWNLOAD_DIR = 'MEDIA/download/'
 
 
 class Node:
-    def __init__(self, addr, tracker_adr):
+    def __init__(self, addr, tracker_adr, input_json):
         commands = self.node_commands()
         self.terminal = Terminal(commands)
         self.addr = addr
         self.tracker_adr = tracker_adr
         self.chunks = dict()
         self.private_key, self.public_key = encryption.generate_keys()
+        self.input_json = None
+        if input_json:
+            with open(input_json, 'r') as w:
+                self.input_json = json.load(w)
 
     def start(self):
         while True:
@@ -41,6 +45,11 @@ class Node:
             'file_name': file_name,
             'chunk_count': len(self.chunks[file_name])
         }
+        if self.input_json:
+            data['chunks'] = self.input_json['chunks']
+            # chunk_dict = dict()
+            # for i, index in enumerate(input_json['chunks']):
+            #     chunk_dict[index] = self.chunks['file_name'][i]
         self.send_receive_message_to_tracker(data, False)
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.bind(self.addr)
@@ -52,7 +61,7 @@ class Node:
                   f'{data}')
             data = json.loads(data)
             chunks = self.chunks[file_name]
-            chunk = chunks[data['chunk_id']]
+            chunk = chunks[data['chunk_id'] - max(min(self.input_json['chunks']), 0)]
             public_key = RSA.importKey(data['public_key'].encode('utf-8'))
             aes_key = encryption.generate_secret_key_for_AES_cipher()
             aes_res = encryption.encrypt_message_AES(chunk, aes_key, b'{')
@@ -75,6 +84,7 @@ class Node:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.bind(self.addr)
         file = list()
+        sorted_peer_addr_list = sorted(uploader_peer_adr_list, key=lambda x: x['score'], reverse=True)
         for i in range(chunk_count):
             data = {
                 'type': 'get_file',
@@ -83,7 +93,7 @@ class Node:
                 'public_key': self.public_key.exportKey('PEM').decode('utf-8')
             }
             req = json.dumps(data).encode('utf-8')
-            uploader_peer_adr = self.choose_peer(uploader_peer_adr_list)
+            uploader_peer_adr = self.choose_peer(sorted_peer_addr_list, i)
             sock.sendto(req, uploader_peer_adr)
             aes_key_encrypted, address = sock.recvfrom(BUFF_SIZE)
             chunk, address = sock.recvfrom(BUFF_SIZE)
@@ -135,15 +145,14 @@ class Node:
     @staticmethod
     def parse_tracker_response(response: dict) -> tuple:
         peers = response['peers']
-        for i in range(len(peers)):
-            peers[i] = tuple(peers[i])
         chunk_count = response['chunk_count']
         return peers, chunk_count
 
     @staticmethod
-    def choose_peer(peers):
-        # TODO: change selecting algorithm from random to something else
-        return tuple(random.choice(peers))
+    def choose_peer(peers, i):
+        for peer in peers:
+            if i in peer['chunk_list'] or -1 in peer['chunk_list']:
+                return tuple(peer['peer_addr'])
 
     @staticmethod
     def check_file_exist(file_name: str) -> bool:

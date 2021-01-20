@@ -1,7 +1,7 @@
 import socket
 import json
 
-BUFF_SIZE = 2 ** 12
+BUFF_SIZE = 2 ** 13
 
 
 class Tracker:
@@ -31,12 +31,24 @@ class Tracker:
     def handle_request(self, data):
         if data['type'] == 'add_peer':
             file_name = data['file_name']
+            score = 0
+            if 'chunks' in data:
+                chunks = data['chunks']
+                score = 100
+                if file_name not in self.file_tracker:
+                    return
+            else:
+                chunks = [-1]
             if file_name not in self.file_tracker:
                 self.file_tracker[file_name] = {
                     'peers': list(),
                     'chunk_count': data['chunk_count']
                 }
-            self.file_tracker[file_name]['peers'].append(data['peer_addr'])
+            self.file_tracker[file_name]['peers'].append({
+                'peer_addr': data['peer_addr'],
+                'score': score,
+                'chunk_list': chunks
+            })
             return None
         elif data['type'] == 'find_file':
             file_name = data['file_name']
