@@ -3,7 +3,7 @@ import sys
 from node.node import Node
 
 unix_options = 't:s:u:d:p:p:'
-gnu_options = ['ip', 'port', 'tracker_ip', 'tracker_port']
+gnu_options = ['ip=', 'port=', 'tracker_ip=', 'tracker_port=']
 
 
 def parse_args(argv):
@@ -25,7 +25,7 @@ def parse_args(argv):
             node_port = int(curr_val)
         if curr_arg == '--tracker_ip':
             tracker_ip = curr_val
-        if curr_arg == '--port':
+        if curr_arg == '--tracker_port':
             tracker_port = int(curr_val)
 
     return (node_ip, node_port), (tracker_ip, tracker_port)
@@ -33,5 +33,7 @@ def parse_args(argv):
 
 if __name__ == '__main__':
     node_addr, tracker_addr = parse_args(sys.argv[1:])
+    print(node_addr)
+    print(tracker_addr)
     node = Node(node_addr, tracker_addr)
     node.start()
