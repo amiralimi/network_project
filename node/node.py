@@ -1,16 +1,18 @@
 import socket
 import json
 import re
+import os
 from .terminal import Terminal, Command
 
 BUFF_SIZE = 2 ** 12
+MAX_CHUNK_SIZE = 60000
 
 
 class Node:
-    def __init__(self, adr, tracker_adr):
+    def __init__(self, addr, tracker_adr):
         commands = self.node_commands()
         self.terminal = Terminal(commands)
-        self.adr = adr
+        self.addr = addr
         self.tracker_adr = tracker_adr
 
     def start(self):
@@ -21,10 +23,27 @@ class Node:
     def upload(self, file_name: str):
         data = {
             'type': 'add_peer',
-            'peer_addr': self.adr,
+            'peer_addr': self.addr,
             'file_name': file_name
         }
         self.send_receive_message_to_tracker(data, False)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.bind(self.addr)
+        while True:
+            print(f'waiting for upload requests.')
+            data, address = sock.recvfrom(BUFF_SIZE)
+            data = data.decode('utf-8')
+            print(f'got this request from {address}:\n'
+                  f'{data}')
+            data = json.loads(data)
+            chunk = self.get_chunk(data)
+            response = {
+                'chunk_id': 'idk',
+                'chunk': chunk
+            }
+            print(f'sending chunk {"idk"} to {address}')
+            response = json.dumps(response).encode('utf-8')
+            sock.sendto(response, address)
 
     def search(self, file_name: str):
         data = {
@@ -56,6 +75,10 @@ class Node:
         if 'search' in command:
             file_name = command_parts[2].replace('"', '')
             self.search(file_name)
+
+    @staticmethod
+    def get_chunk(req):
+        return req
 
     @staticmethod
     def node_commands() -> Command:
