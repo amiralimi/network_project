@@ -5,10 +5,12 @@ import os.path
 import random
 
 from typing import List
+from Crypto.PublicKey import RSA
 
 from .terminal import Terminal, Command
+from . import encryption
 
-BUFF_SIZE = 2 ** 12
+BUFF_SIZE = 2 ** 13
 MAX_CHUNK_SIZE = 4000
 UPLOAD_DIR = 'MEDIA/upload/'
 DOWNLOAD_DIR = 'MEDIA/download/'
@@ -21,6 +23,7 @@ class Node:
         self.addr = addr
         self.tracker_adr = tracker_adr
         self.chunks = dict()
+        self.private_key, self.public_key = encryption.generate_keys()
 
     def start(self):
         while True:
@@ -50,8 +53,13 @@ class Node:
             data = json.loads(data)
             chunks = self.chunks[file_name]
             chunk = chunks[data['chunk_id']]
+            public_key = RSA.importKey(data['public_key'].encode('utf-8'))
+            aes_key = encryption.generate_secret_key_for_AES_cipher()
+            aes_res = encryption.encrypt_message_AES(chunk, aes_key, b'{')
+            encrypted_aes_key = encryption.encrypt_message(aes_key, public_key)
             print(f'sending chunk {"idk"} to {address}')
-            sock.sendto(chunk, address)
+            sock.sendto(encrypted_aes_key, address)
+            sock.sendto(aes_res, address)
 
     def search(self, file_name: str):
         data = {
@@ -71,14 +79,18 @@ class Node:
             data = {
                 'type': 'get_file',
                 'file_name': file_name,
-                'chunk_id': i
+                'chunk_id': i,
+                'public_key': self.public_key.exportKey('PEM').decode('utf-8')
             }
             req = json.dumps(data).encode('utf-8')
             uploader_peer_adr = self.choose_peer(uploader_peer_adr_list)
             sock.sendto(req, uploader_peer_adr)
-            response, address = sock.recvfrom(BUFF_SIZE)
+            aes_key_encrypted, address = sock.recvfrom(BUFF_SIZE)
+            chunk, address = sock.recvfrom(BUFF_SIZE)
             print(f'got response from server for chunk {i}')
-            file.append(response)
+            aes_key_decrypted = encryption.decrypt_message(aes_key_encrypted, self.private_key)
+            decrypted_chunk = encryption.decrypt_message_AES(chunk, aes_key_decrypted, b'{')
+            file.append(decrypted_chunk)
         file_path = DOWNLOAD_DIR + file_name
         file_byte = file[0]
         for i in range(1, len(file)):
@@ -111,6 +123,14 @@ class Node:
         if 'search' in command:
             file_name = command_parts[2].replace('"', '')
             self.search(file_name)
+
+    @staticmethod
+    def encode_decode(message, key, function) -> bytes:
+        chunk = b''
+        size = len(message) // 8
+        for i in range(0, len(message), size):
+            chunk += function(message[i:i + size], key)
+        return chunk
 
     @staticmethod
     def parse_tracker_response(response: dict) -> tuple:
