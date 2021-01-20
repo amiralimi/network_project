@@ -20,7 +20,7 @@ class Node:
         data = {
             'type': 'add_peer',
             'peer_addr': self.adr,
-            'filename': file_name
+            'file_name': file_name
         }
         self.send_message_to_tracker(data)
 
@@ -29,7 +29,7 @@ class Node:
 
     def send_message_to_tracker(self, data):
         req = json.dumps(data).encode('utf-8')
-        print(f'sending bellow data to tracker.\n'
+        print(f'sending this data to tracker:\n'
               f'r{req}')
         udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
         udp_socket.sendto(req, self.tracker_adr)

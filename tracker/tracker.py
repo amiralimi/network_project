@@ -17,15 +17,18 @@ class Tracker:
             print(f'tracker is waiting for requests')
             data, address = self.sock.recvfrom(self.BUFF_SIZE)
             data = data.decode('utf-8')
+            print(f'got this request from {address}:\n'
+                  f'{data}')
             data = json.loads(data)
-            self.handle_request(data, address)
+            self.handle_request(data)
 
-    def handle_request(self, data, address):
+    def handle_request(self, data):
         if data['type'] == 'add_peer':
             file_name = data['file_name']
             if file_name not in self.file_tracker:
                 self.file_tracker[file_name] = list()
-            self.file_tracker[file_name].append(address)  # or data['peer_addr']
+            self.file_tracker[file_name].append(data['peer_addr'])
+        print(self.file_tracker)
         # TODO: other types of requests.
 
 
