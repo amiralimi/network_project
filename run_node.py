@@ -33,7 +33,5 @@ def parse_args(argv):
 
 if __name__ == '__main__':
     node_addr, tracker_addr = parse_args(sys.argv[1:])
-    print(node_addr)
-    print(tracker_addr)
     node = Node(node_addr, tracker_addr)
     node.start()

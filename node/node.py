@@ -1,11 +1,13 @@
 import socket
 import json
 import re
-import os
+import os.path
 from .terminal import Terminal, Command
 
 BUFF_SIZE = 2 ** 12
 MAX_CHUNK_SIZE = 60000
+UPLOAD_DIR = 'MEDIA/upload/'
+DOWNLOAD_DIR = 'MEDIA/download/'
 
 
 class Node:
@@ -21,6 +23,8 @@ class Node:
             self.run_command(command)
 
     def upload(self, file_name: str):
+        if not self.check_file_exist(file_name):
+            print(f'file you are trying to upload doesn\'t exist')
         data = {
             'type': 'add_peer',
             'peer_addr': self.addr,
@@ -54,9 +58,9 @@ class Node:
         uploader_peer_adr = self.select_uploader_peer(response)
         print(uploader_peer_adr)
         if uploader_peer_adr:
-            self.download(file_name , uploader_peer_adr)
+            self.download(file_name, uploader_peer_adr)
 
-    def download(self, file_name: str,uploader_peer_adr):
+    def download(self, file_name: str, uploader_peer_adr):
         data = {
             'type': 'get_file',
             'file_name': file_name
@@ -67,15 +71,15 @@ class Node:
         sock.sendto(req, uploader_peer_adr)
         response, address = sock.recvfrom(BUFF_SIZE)
         response = json.loads(response.decode('utf-8'))
-        f = open("docs/result.txt", "w")
+        file_path = DOWNLOAD_DIR + file_name
+        f = open(file_path, "w+")
         for line in response["chunk"]:
             f.write(line)
         f.close()
         sock.close()
 
-
-    def select_uploader_peer (self, response: dict) ->tuple:
-        return response[0][0], response[0][1]
+    def select_uploader_peer(self, response: list) -> tuple:
+        return tuple(response[0])
         # todo add chunk and uploader selector
 
     def send_receive_message_to_tracker(self, data: dict, has_response: bool) -> list:
@@ -103,10 +107,17 @@ class Node:
             self.search(file_name)
 
     @staticmethod
+    def check_file_exist(file_name: str) -> bool:
+        file_path = UPLOAD_DIR + file_name
+        if os.path.isfile(file_path):
+            return True
+        return False
+
+    @staticmethod
     def get_chunk(req):
         requested_filename = req['file_name']
-        file_path = 'docs/' + requested_filename
-        f = open(file_path , 'r')
+        file_path = UPLOAD_DIR + requested_filename
+        f = open(file_path, 'r')
         chunk = f.readlines()
         f.close()
         return chunk
