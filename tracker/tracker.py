@@ -1,12 +1,13 @@
 import socket
 import json
 
+BUFF_SIZE = 2 ** 12
+
 
 class Tracker:
-    def __init__(self, ip, port, BUFF_SIZE):
+    def __init__(self, ip, port):
         self.ip = ip
         self.port = port
-        self.BUFF_SIZE = BUFF_SIZE
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.server_adr = (self.ip, self.port)
         self.file_tracker = dict()
@@ -15,7 +16,7 @@ class Tracker:
         self.sock.bind(self.server_adr)
         while True:
             print(f'tracker is waiting for requests')
-            data, address = self.sock.recvfrom(self.BUFF_SIZE)
+            data, address = self.sock.recvfrom(BUFF_SIZE)
             data = data.decode('utf-8')
             print(f'got this request from {address}:\n'
                   f'{data}')
@@ -44,5 +45,5 @@ class Tracker:
 
 
 if __name__ == '__main__':
-    tracker = Tracker('localhost', 1111, 2 ** 16)
+    tracker = Tracker('localhost', 1111)
     tracker.run()

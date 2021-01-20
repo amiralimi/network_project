@@ -3,6 +3,8 @@ import json
 import re
 from .terminal import Terminal, Command
 
+BUFF_SIZE = 2 ** 12
+
 
 class Node:
     def __init__(self, adr, tracker_adr):
@@ -39,7 +41,7 @@ class Node:
         udp_socket.sendto(req, self.tracker_adr)
         response = None
         if has_response:
-            response, address = udp_socket.recvfrom(4096)
+            response, address = udp_socket.recvfrom(BUFF_SIZE)
             response = json.loads(response.decode('utf-8'))
             print(f'got this response from the server:\n'
                   f'{response}')
