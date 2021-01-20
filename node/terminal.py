@@ -9,7 +9,7 @@ class Terminal:
         self.commands = commands
 
     def get_input(self) -> str:
-        input_command = input('Enter your command.')
+        input_command = input('Enter your command.\n')
         for command in self.commands:
             match = command.match(input_command)
             if match:
