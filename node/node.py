@@ -2,10 +2,14 @@ import socket
 import json
 import re
 import os.path
+import random
+
+from typing import List
+
 from .terminal import Terminal, Command
 
 BUFF_SIZE = 2 ** 12
-MAX_CHUNK_SIZE = 60000
+MAX_CHUNK_SIZE = 4000
 UPLOAD_DIR = 'MEDIA/upload/'
 DOWNLOAD_DIR = 'MEDIA/download/'
 
@@ -16,6 +20,7 @@ class Node:
         self.terminal = Terminal(commands)
         self.addr = addr
         self.tracker_adr = tracker_adr
+        self.chunks = dict()
 
     def start(self):
         while True:
@@ -25,10 +30,13 @@ class Node:
     def upload(self, file_name: str):
         if not self.check_file_exist(file_name):
             print(f'file you are trying to upload doesn\'t exist')
+            return
+        self.chunks[file_name] = self.get_chunk(file_name)
         data = {
             'type': 'add_peer',
             'peer_addr': self.addr,
-            'file_name': file_name
+            'file_name': file_name,
+            'chunk_count': len(self.chunks[file_name])
         }
         self.send_receive_message_to_tracker(data, False)
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -40,14 +48,10 @@ class Node:
             print(f'got this request from {address}:\n'
                   f'{data}')
             data = json.loads(data)
-            chunk = self.get_chunk(data)
-            response = {
-                'chunk_id': 'idk',
-                'chunk': chunk
-            }
+            chunks = self.chunks[file_name]
+            chunk = chunks[data['chunk_id']]
             print(f'sending chunk {"idk"} to {address}')
-            response = json.dumps(response).encode('utf-8')
-            sock.sendto(response, address)
+            sock.sendto(chunk, address)
 
     def search(self, file_name: str):
         data = {
@@ -55,34 +59,36 @@ class Node:
             'file_name': file_name
         }
         response = self.send_receive_message_to_tracker(data, True)
-        uploader_peer_adr = self.select_uploader_peer(response)
-        print(uploader_peer_adr)
-        if uploader_peer_adr:
-            self.download(file_name, uploader_peer_adr)
+        peers, chunk_counts = self.parse_tracker_response(response)
+        if peers:
+            self.download(file_name, peers, chunk_counts)
 
-    def download(self, file_name: str, uploader_peer_adr):
-        data = {
-            'type': 'get_file',
-            'file_name': file_name
-        }
+    def download(self, file_name: str, uploader_peer_adr_list: list, chunk_count: int):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.bind(self.addr)
-        req = json.dumps(data).encode('utf-8')
-        sock.sendto(req, uploader_peer_adr)
-        response, address = sock.recvfrom(BUFF_SIZE)
-        response = json.loads(response.decode('utf-8'))
+        file = list()
+        for i in range(chunk_count):
+            data = {
+                'type': 'get_file',
+                'file_name': file_name,
+                'chunk_id': i
+            }
+            req = json.dumps(data).encode('utf-8')
+            uploader_peer_adr = self.choose_peer(uploader_peer_adr_list)
+            sock.sendto(req, uploader_peer_adr)
+            response, address = sock.recvfrom(BUFF_SIZE)
+            print(f'got response from server for chunk {i}')
+            file.append(response)
         file_path = DOWNLOAD_DIR + file_name
-        f = open(file_path, "w+")
-        for line in response["chunk"]:
-            f.write(line)
+        file_byte = file[0]
+        for i in range(1, len(file)):
+            file_byte += file[i]
+        f = open(file_path, "wb+")
+        f.write(file_byte)
         f.close()
         sock.close()
 
-    def select_uploader_peer(self, response: list) -> tuple:
-        return tuple(response[0])
-        # todo add chunk and uploader selector
-
-    def send_receive_message_to_tracker(self, data: dict, has_response: bool) -> list:
+    def send_receive_message_to_tracker(self, data: dict, has_response: bool) -> dict:
         req = json.dumps(data).encode('utf-8')
         print(f'sending this data to tracker:\n'
               f'r{req}')
@@ -107,6 +113,19 @@ class Node:
             self.search(file_name)
 
     @staticmethod
+    def parse_tracker_response(response: dict) -> tuple:
+        peers = response['peers']
+        for i in range(len(peers)):
+            peers[i] = tuple(peers[i])
+        chunk_count = response['chunk_count']
+        return peers, chunk_count
+
+    @staticmethod
+    def choose_peer(peers):
+        # TODO: change selecting algorithm from random to something else
+        return tuple(random.choice(peers))
+
+    @staticmethod
     def check_file_exist(file_name: str) -> bool:
         file_path = UPLOAD_DIR + file_name
         if os.path.isfile(file_path):
@@ -114,13 +133,13 @@ class Node:
         return False
 
     @staticmethod
-    def get_chunk(req):
-        requested_filename = req['file_name']
-        file_path = UPLOAD_DIR + requested_filename
-        f = open(file_path, 'r')
-        chunk = f.readlines()
+    def get_chunk(file_name) -> List[bytes]:
+        file_path = UPLOAD_DIR + file_name
+        f = open(file_path, 'rb')
+        data = f.read()
         f.close()
-        return chunk
+        chunks = [data[i:i + MAX_CHUNK_SIZE] for i in range(0, len(data), MAX_CHUNK_SIZE)]
+        return chunks
 
     @staticmethod
     def node_commands() -> Command:

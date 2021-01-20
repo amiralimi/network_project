@@ -32,15 +32,18 @@ class Tracker:
         if data['type'] == 'add_peer':
             file_name = data['file_name']
             if file_name not in self.file_tracker:
-                self.file_tracker[file_name] = list()
-            self.file_tracker[file_name].append(data['peer_addr'])
+                self.file_tracker[file_name] = {
+                    'peers': list(),
+                    'chunk_count': data['chunk_count']
+                }
+            self.file_tracker[file_name]['peers'].append(data['peer_addr'])
             return None
         elif data['type'] == 'find_file':
             file_name = data['file_name']
             if file_name in self.file_tracker:
                 response = self.file_tracker[file_name]
             else:
-                response = []
+                response = {}
             return response
 
 
