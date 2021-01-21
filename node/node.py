@@ -61,7 +61,11 @@ class Node:
                   f'{data}')
             data = json.loads(data)
             chunks = self.chunks[file_name]
-            chunk = chunks[data['chunk_id'] - max(min(self.input_json['chunks']), 0)]
+            if not self.input_json:
+                min_val = 0
+            else:
+                min_val = min(self.input_json['chunks'])
+            chunk = chunks[data['chunk_id'] - max(min_val, 0)]
             public_key = RSA.importKey(data['public_key'].encode('utf-8'))
             aes_key = encryption.generate_secret_key_for_AES_cipher()
             aes_res = encryption.encrypt_message_AES(chunk, aes_key, b'{')
